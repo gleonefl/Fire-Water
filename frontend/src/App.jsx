@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import Map3D from './components/Map3D'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
-import FireOverlay from './components/FireOverlay'
+import FireOverlay, { FIRE_POINTS } from './components/FireOverlay'
 import AlertToast from './components/AlertToast'
 import { useWeatherData } from './components/WeatherPanel'
 
@@ -29,6 +29,49 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
   const mapRef = useRef(null)
   const prevWaterBand = useRef(0)
+  const firmsRef = useRef(null)
+  const [firms, setFirms] = useState(null)
+  const [firmsLoading, setFirmsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30000)
+
+    fetch('/api/nasa/firms', { signal: ctrl.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error('firms')
+        return res.json()
+      })
+      .then((data) => {
+        if (!cancelled) setFirms(data)
+      })
+      .catch(() => {
+        if (!cancelled) setFirms({ ok: false, fires: [], count: 0, fallback: 'simulated' })
+      })
+      .finally(() => {
+        if (!cancelled) setFirmsLoading(false)
+        clearTimeout(timer)
+      })
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [])
+
+  const firePoints = useMemo(() => {
+    if (!firms) return null
+    if (firms.ok && Array.isArray(firms.fires) && firms.fires.length > 0) {
+      return firms.fires.slice(0, 30).map((f) => [f.lon, f.lat])
+    }
+    if (firms.ok) return []
+    return FIRE_POINTS
+  }, [firms])
+
+  const fireSourceLabel = !firms ? null : firms.ok ? 'NASA FIRMS' : 'simulated'
+  firmsRef.current = firms
 
   // Dados meteorológicos em tempo real (Open-Meteo, grátis)
   const { weather, loading: weatherLoading } = useWeatherData()
@@ -66,7 +109,15 @@ export default function App() {
         addAlert({ type: 'success', title: 'Fogo extinto', message: 'Simulação de incêndio desativada — fumaça residual' })
       } else {
         setSmokeOnly(false)
-        addAlert({ type: 'fire', title: 'Incêndio ativo', message: '12 focos de incêndio simulados na região urbana', duration: 6000 })
+        const live = firmsRef.current?.ok && firmsRef.current?.count > 0
+        addAlert({
+          type: 'fire',
+          title: live ? 'Focos NASA FIRMS' : 'Incêndio ativo',
+          message: live
+            ? `${firmsRef.current.count} detecções reais na região canavieira`
+            : 'Pontos simulated — FIRMS indisponível',
+          duration: 6000,
+        })
       }
       return !prev
     })
@@ -105,6 +156,8 @@ export default function App() {
         map={mapRef}
         fireActive={fireActive || activeModule === 'wildfire'}
         smokeOnly={smokeOnly}
+        points={firePoints}
+        sourceLabel={fireSourceLabel}
       />
 
       {/* Top bar */}
@@ -126,6 +179,9 @@ export default function App() {
         weatherLoading={weatherLoading}
         onLocationFound={handleLocationFound}
         onAlert={addAlert}
+        firms={firms}
+        firmsLoading={firmsLoading}
+        fireSourceLabel={fireSourceLabel}
       />
 
       {/* Toast notifications */}
