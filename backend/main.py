@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import flood, geomarketing, databricks
+from routers import flood, geomarketing, databricks, nasa
 
 app = FastAPI(
     title="AQUACITIES 3D API",
@@ -19,6 +19,7 @@ app.add_middleware(
 app.include_router(flood.router, prefix="/api/flood", tags=["Flood Risk"])
 app.include_router(geomarketing.router, prefix="/api/geo", tags=["GeoMarketing"])
 app.include_router(databricks.router, prefix="/api/db", tags=["Databricks"])
+app.include_router(nasa.router, prefix="/api/nasa", tags=["NASA"])
 
 
 @app.get("/")

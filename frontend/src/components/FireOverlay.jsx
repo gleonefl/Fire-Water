@@ -76,14 +76,19 @@ function createSmoke(size, delay, isHeavy) {
   return el
 }
 
-export default function FireOverlay({ map, fireActive, smokeOnly }) {
+export default function FireOverlay({ map, fireActive, smokeOnly, points = null, sourceLabel = null }) {
   const containerRef = useRef(null)
   const rafRef = useRef(null)
 
   useEffect(() => {
     const mapInstance = map?.current
     if (!mapInstance || !containerRef.current) return
+    const activePoints = Array.isArray(points) ? points : []
     if (!fireActive && !smokeOnly) {
+      containerRef.current.innerHTML = ''
+      return
+    }
+    if (activePoints.length === 0) {
       containerRef.current.innerHTML = ''
       return
     }
@@ -91,7 +96,7 @@ export default function FireOverlay({ map, fireActive, smokeOnly }) {
     const container = containerRef.current
     container.innerHTML = ''
 
-    FIRE_POINTS.forEach((_, i) => {
+    activePoints.forEach((_, i) => {
       const wrapper = document.createElement('div')
       wrapper.className = 'fire-point'
       wrapper.dataset.index = i
@@ -175,7 +180,8 @@ export default function FireOverlay({ map, fireActive, smokeOnly }) {
     const updatePositions = () => {
       const els = container.querySelectorAll('.fire-point')
       els.forEach((el, i) => {
-        const [lon, lat] = FIRE_POINTS[i]
+        const [lon, lat] = activePoints[i] || []
+        if (lon == null || lat == null) return
         try {
           const pt = mapInstance.project([lon, lat])
           el.style.transform = `translate(${pt.x}px, ${pt.y}px) translate(-50%, -100%)`
@@ -196,13 +202,23 @@ export default function FireOverlay({ map, fireActive, smokeOnly }) {
     }
 
     return () => cancelAnimationFrame(rafRef.current)
-  }, [map, fireActive, smokeOnly])
+  }, [map, fireActive, smokeOnly, points])
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 5 }}
-    />
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 5 }}>
+      <div ref={containerRef} className="absolute inset-0 overflow-hidden" />
+      {fireActive && sourceLabel && (
+        <div
+          className="absolute bottom-4 left-4 px-2 py-1 rounded border text-[10px] tracking-widest font-bold"
+          style={{
+            background: 'rgba(0,0,0,0.72)',
+            borderColor: sourceLabel === 'simulated' ? 'rgba(255,107,0,0.45)' : 'rgba(0,245,255,0.45)',
+            color: sourceLabel === 'simulated' ? '#ff6b00' : '#00f5ff',
+          }}
+        >
+          {sourceLabel}
+        </div>
+      )}
+    </div>
   )
 }

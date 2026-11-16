@@ -2,6 +2,7 @@ import { useState } from 'react'
 import RiskCard from './RiskCard'
 import WeatherPanel from './WeatherPanel'
 import AddressSearch from './AddressSearch'
+import NasaFarmPanel from './NasaFarmPanel'
 import axios from 'axios'
 
 export default function Sidebar({
@@ -19,6 +20,9 @@ export default function Sidebar({
   weatherLoading,
   onLocationFound,
   onAlert,
+  firms,
+  firmsLoading,
+  fireSourceLabel,
 }) {
   const [precipitation, setPrecipitation] = useState(80)
   const [impermeability, setImpermeability] = useState(0.7)
@@ -148,7 +152,7 @@ export default function Sidebar({
               </button>
               {fireActive && (
                 <p className="text-[10px] text-orange-400/70 mt-1 text-center">
-                  Fumaça persiste ao desligar
+                  {fireSourceLabel || '…'} · fumaça persiste ao desligar
                 </p>
               )}
             </div>
@@ -247,26 +251,37 @@ export default function Sidebar({
             {fireActive && (
               <>
                 <p className="text-[10px] text-orange-400/70 mt-1 text-center">
-                  Fumaça persiste ao desligar
+                  {fireSourceLabel === 'simulated' ? 'simulated' : (fireSourceLabel || '…')}
+                  {' '}· fumaça persiste ao desligar
                 </p>
 
                 {/* Stats do incêndio */}
                 <div className="mt-3 grid grid-cols-2 gap-1.5">
                   <div className="bg-gray-900/50 rounded p-2 text-center">
                     <p className="text-[9px] text-gray-600 uppercase">Focos</p>
-                    <p className="text-orange-400 text-sm font-bold">12</p>
+                    <p className="text-orange-400 text-sm font-bold">
+                      {firms?.ok ? firms.count : 12}
+                    </p>
                   </div>
                   <div className="bg-gray-900/50 rounded p-2 text-center">
-                    <p className="text-[9px] text-gray-600 uppercase">Área</p>
-                    <p className="text-orange-400 text-sm font-bold">3.2 km²</p>
+                    <p className="text-[9px] text-gray-600 uppercase">Fonte</p>
+                    <p className="text-orange-400 text-[11px] font-bold">
+                      {firms?.ok ? 'FIRMS' : 'simulated'}
+                    </p>
                   </div>
                   <div className="bg-gray-900/50 rounded p-2 text-center">
-                    <p className="text-[9px] text-gray-600 uppercase">Temperatura</p>
-                    <p className="text-red-400 text-sm font-bold">~800°C</p>
+                    <p className="text-[9px] text-gray-600 uppercase">
+                      {firms?.ok ? 'Sensor' : 'Temperatura'}
+                    </p>
+                    <p className="text-red-400 text-sm font-bold">
+                      {firms?.ok ? 'VIIRS/MODIS' : '~800°C'}
+                    </p>
                   </div>
                   <div className="bg-gray-900/50 rounded p-2 text-center">
                     <p className="text-[9px] text-gray-600 uppercase">Risco</p>
-                    <p className="text-red-400 text-sm font-bold animate-pulse">ALTO</p>
+                    <p className="text-red-400 text-sm font-bold animate-pulse">
+                      {firms?.ok ? (firms.count > 0 ? 'ATIVO' : 'NENHUM') : 'ALTO'}
+                    </p>
                   </div>
                 </div>
               </>
@@ -328,6 +343,13 @@ export default function Sidebar({
       {riskData && (
         <RiskCard data={riskData} />
       )}
+
+      <NasaFarmPanel
+        lat={selectedCoord?.lat ?? -21.1775}
+        lon={selectedCoord?.lon ?? -47.8099}
+        firms={firms}
+        firmsLoading={firmsLoading}
+      />
 
       {/* ── Painel meteorológico em tempo real ── */}
       {(activeModule === 'flood' || activeModule === 'wildfire') && (
